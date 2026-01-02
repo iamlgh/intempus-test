@@ -32,6 +32,15 @@ def getProjectChanges(objFrom, objTo):
                 if objTo[key] != ("{:.2f}".format(objFrom[key])):
                     print(objTo[key])
                     j[key] = objFrom[key]
+            elif key == 'responsibles' and type(objTo[key]) != type(objFrom[key]):
+                f = objFrom[key]
+                t = objTo[key]
+                if f == None:
+                    f = []
+                if t == None:
+                    t = []
+                if f != t:
+                    j[key] = objFrom[key]
             elif type(objTo[key]) != type(objFrom[key]):
                 # null to object or vice-versa
                 if objTo[key] == None or objFrom[key] == None:
@@ -44,7 +53,37 @@ def getProjectChanges(objFrom, objTo):
                 j[key] = objFrom[key]
     return j
 
-#def parseData(dbData, iData, updatesIntempus2Db, addsIntempus2Db, deletesIntempus2Db, updatesDb2Intempus, addsDb2Intempus, deletesDb2Intempus):
+def checkForChanges(objD, objI):
+    updatesDb2Intempus = []
+    updatesIntempus2Db = []
+    j = None
+    #print("Checking if change was to db data or Intempus data")
+    if objD['logical_timestamp'] == objI['logical_timestamp']:
+        compareKeys(objD.keys(), objI.keys(), "db", "Intempus")
+        # compare values for every key, but update changes only
+        j = getProjectChanges(objD, objI)
+        if j:    
+            print("db data changed")
+            j['id'] = objD['id']
+            j['resource_uri'] = objD['resource_uri']
+            updatesDb2Intempus.append(j)
+    elif objD['logical_timestamp'] != objI['logical_timestamp']:
+        compareKeys(objI.keys(), objD.keys(), "Intempus", "db")
+        # compare values for every key, but update changes only
+        j = getProjectChanges(objI,objD)
+        if j:    
+            print("Intempus data changed")
+            j['id'] = objI['id']
+            j['resource_uri'] = objI['resource_uri']
+            updatesIntempus2Db.append(j)
+    else:
+        raise SystemExit("Cannot determine which data has changed")
+    if j:
+        print(f"Need to update Id {objI['id']}")
+    else:
+        print(f"Unchanged {objD['id']}")
+    return(updatesDb2Intempus, updatesIntempus2Db)
+
 def parseData(dbData, iData):
     updatesIntempus2Db = [] #update project in db, with updated values
     addsIntempus2Db = [] #add specified project to db
@@ -69,32 +108,13 @@ def parseData(dbData, iData):
                     if objI == objD:
                         print(f"Unchanged {objD['id']}")
                     else:
-                        j = None
-                        #print("Checking if change was to db data or Intempus data")
-                        if objD['logical_timestamp'] == objI['logical_timestamp']:
-                            compareKeys(objD.keys(), objI.keys(), "db", "Intempus")
-                            # compare values for every key, but update changes only
-                            j = getProjectChanges(objD, objI)
-                            if j:    
-                                print("db data changed")
-                                j['id'] = objD['id']
-                                j['resource_uri'] = objD['resource_uri']
-                                updatesDb2Intempus.append(j)
-                        elif objD['logical_timestamp'] != objI['logical_timestamp']:
-                            compareKeys(objI.keys(), objD.keys(), "Intempus", "db")
-                            # compare values for every key, but update changes only
-                            j = getProjectChanges(objI,objD)
-                            if j:    
-                                print("Intempus data changed")
-                                j['id'] = objI['id']
-                                j['resource_uri'] = objI['resource_uri']
-                                updatesIntempus2Db.append(j)
-                        else:
-                            raise SystemExit("Cannot determine which data has changed")
-                        if j:
-                            print(f"Need to update Id {objI['id']}")
-                        else:
-                            print(f"Unchanged {objD['id']}")
+                        #with open(f'./data/{objD['id']}_B_data.json', 'w') as fp:
+                        #    json.dump(objD, fp)
+                        #with open(f'./data/{objD['id']}_A_data.json', 'w') as fp:
+                        #    json.dump(objI, fp)
+                        updates = checkForChanges(objD, objI)
+                        updatesDb2Intempus = updates[0]
+                        updatesIntempus2Db = updates[1]
                 else:
                     print(f"Need to add project {objI['id']} to db")
                     addsIntempus2Db.append(objI)
@@ -193,7 +213,7 @@ def genDbUpdate(upd2Db, dbId = None):
                 setTxt += f"{key}={upd2Db[key]}"
             else:
                 where = f"WHERE {key}={upd2Db[key]}"
-        elif key == 'responsibles' and upd2Db[key] == []:
+        elif key == 'responsibles' and upd2Db[key] == [] or upd2Db[key] == None:
             continue
         elif type(upd2Db[key]) is str or type(upd2Db[key]) is None:
             if setTxt:
@@ -234,11 +254,12 @@ def addToIntempus(cursor, payload):
 
         #compare payload to project and update db in order to make sure that default intempus data is added to the db
         upd2Db = getProjectChanges(project, payload)
-        with open('./data/params_updated_after_add.json', 'w') as fp:
-            json.dump(upd2Db, fp)
-        rv = updateDb(cursor, upd2Db, payload['id'])
-        if rv:
-            print("DB Update Failed")
+        if (upd2Db):
+            #with open('./data/params_updated_after_add.json', 'w') as fp:
+            #    json.dump(upd2Db, fp)
+            rv = updateDb(cursor, upd2Db, payload['id'])
+            if rv:
+                print("DB Update Failed")
     else:
         print("Intempus Update Failed")
         print(r.text)
@@ -251,11 +272,15 @@ def updateIntempus(cursor, payload):
     apikey = os.environ['INTEMPUS_APIKEY']
     user = os.environ['INTEMPUS_USER']
     headers = {'authorization': f'apikey {user}:{apikey}', 'accept': 'application/json', 'content-type': 'application/json'}
+    print(payload)
     r = requests.put(url, headers=headers, data=json.dumps(payload))
     if r.ok:
         project = r.json()
+        print(project) 
+        print(payload)
         upd2Db = getProjectChanges(project, payload)
-        updateDb(cursor, upd2Db, payload['id'])
+        if upd2Db:
+            rv = updateDb(cursor, upd2Db, payload['id'])
         if rv:
             print("DB Update Failed")
     else:
@@ -268,7 +293,6 @@ def updateIntempus(cursor, payload):
 def main():
     print("Hello from intempus-test!")
     dbData = readDb() # get projects from DB
-    #print(dbData) 
     iData = readIntempus()
     data = parseData(dbData, iData)
     rv = processUpdates(data)

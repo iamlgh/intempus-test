@@ -51,13 +51,16 @@ python3 main.py
 ```
 
 ## Scripts included in the repo, with a brief description
-| -------------- | --------------------------------------------- |
+
 | Script         | What it does                                  |
 | -------------- | --------------------------------------------- |
-| data.py        | Used to generate CreateProjectsTable.sql      |
-| extras.py      | Code that I wrote that I didn't end up using  |
+| data.py        | Used to generate CreateProjectsTable.sql |
+| extras.py      | Code that I wrote that I didn't end up using |
 | main.py        | The main script to sync System A and System B |
 | shared.py      | Contains functions shared across multiple scripts |
 | test_main.py   | Tests from "main" functions |
 | test_shared.py | Tests from "shared" functions |
 | update.py      | Used to test that all the data types were correct in the DB so they could be written to the Intempus system |
+| add_project_to_A.py | Adds a project to system A (Intempus) |
+| add_project_to_B.py | Adds a project to system B (DB)|
+
