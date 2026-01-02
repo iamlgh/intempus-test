@@ -1,0 +1,17 @@
+{
+  "department": {
+    "company": "/web/v1/company/38167/",
+    "number": "2",
+    "name": "Department 2"
+  },
+  "case_group": {
+    "company": "/web/v1/company/38167/",
+    "number": "2",
+    "name": "Project Group 2"
+  },
+  "case_state": {
+    "company": "/web/v1/company/38167/",
+    "number": "2",
+    "name": "Project State 2"
+  }
+}
