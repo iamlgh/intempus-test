@@ -20,10 +20,10 @@ def input_to_db_update():
     return upd2Db
 
 def test_genDbUpdate1():
-    assert main.genDbUpdate(input_to_db_update()) == "UPDATE projects SET all_employees_may_add_work_reports=False, all_worktypes_may_used_in_work_reports=True, city='', country='', creation_date='2026-01-01', customer_city='', customer_country='DK', customer_name='Eksempelkunde', customer_street_address='Eksempelvej', customer_zip_code='', geofence=False, logical_timestamp=42, number_of_children=0, permit_new_workreports=True, resource_uri='/web/v1/case/9611835/', street_address='', zip_code='' WHERE id=9611835"
+    assert main.genDbUpdate(input_to_db_update()) == "UPDATE projects SET all_employees_may_add_work_reports=False, all_worktypes_may_used_in_work_reports=True, city='', country='', creation_date='2026-01-02', customer_city='', customer_country='DK', customer_name='Eksempelkunde', customer_street_address='Eksempelvej', customer_zip_code='', geofence=False, logical_timestamp=42, number_of_children=0, permit_new_workreports=True, resource_uri='/web/v1/case/9612054/', responsibles=ARRAY[]::VARCHAR[], street_address='', zip_code='' WHERE id=9612054"
 
 def test_genDbUpdate2():
-    assert main.genDbUpdate(input_to_db_update(), 1) == "UPDATE projects SET all_employees_may_add_work_reports=False, all_worktypes_may_used_in_work_reports=True, city='', country='', creation_date='2026-01-01', customer_city='', customer_country='DK', customer_name='Eksempelkunde', customer_street_address='Eksempelvej', customer_zip_code='', geofence=False, id=9611835, logical_timestamp=42, number_of_children=0, permit_new_workreports=True, resource_uri='/web/v1/case/9611835/', street_address='', zip_code='' WHERE id=1"
+    assert main.genDbUpdate(input_to_db_update(), 1) == "UPDATE projects SET all_employees_may_add_work_reports=False, all_worktypes_may_used_in_work_reports=True, city='', country='', creation_date='2026-01-02', customer_city='', customer_country='DK', customer_name='Eksempelkunde', customer_street_address='Eksempelvej', customer_zip_code='', geofence=False, id=9612054, logical_timestamp=42, number_of_children=0, permit_new_workreports=True, resource_uri='/web/v1/case/9612054/', responsibles=ARRAY[]::VARCHAR[], street_address='', zip_code='' WHERE id=1"
 
 def input_to_parse_data():
     with open("./data/db_data_2_prj.json", "r", encoding="utf-8") as jsonData:

@@ -25,30 +25,33 @@ def compareKeys(keysL, keysR, nameL = "Left", nameR = "Right"):
 def getProjectChanges(objFrom, objTo):
     j = {}
     for key in objTo.keys():
+        #include the keys with differences
         if objTo[key] != objFrom[key]:
-            # first handle keys where the data is the same but doesn't look the same
+            # in case db is null instead of empty array
+            if key == 'responsibles' and type(objTo[key]) != type(objFrom[key]):
+                j[key] = objFrom[key]
+            # elifs handle keys where the data is the same but doesn't look the same becaise of type differences
             # and only include them if they are different after formatting
-            if key == 'hour_budget' and type(objTo[key]) != type(objFrom[key]):
-                if objTo[key] != ("{:.2f}".format(objFrom[key])):
-                    print(objTo[key])
-                    j[key] = objFrom[key]
-            elif key == 'responsibles' and type(objTo[key]) != type(objFrom[key]):
-                f = objFrom[key]
-                t = objTo[key]
-                if f == None:
-                    f = []
-                if t == None:
-                    t = []
-                if f != t:
-                    j[key] = objFrom[key]
+            elif key == 'hour_budget' and type(objTo[key]) != type(objFrom[key]):
+                if type(objFrom[key]) is float:
+                    if objTo[key] != ("{:.2f}".format(objFrom[key])):
+                        j[key] = objFrom[key]
+                elif type(objTo[key]) is float:
+                    if objFrom[key] != ("{:.2f}".format(objTo[key])):
+                        j[key] = objFrom[key]
             elif type(objTo[key]) != type(objFrom[key]):
                 # null to object or vice-versa
                 if objTo[key] == None or objFrom[key] == None:
                     j[key] = objFrom[key]
-                #for longitute and latitude
-                elif objTo[key] != ("{:.6f}".format(objFrom[key])):
-                    j[key] = objFrom[key]
-            #include the keys with differences
+                # for longitute and latitude where a value exists for both, the types will be different (float vs str)
+                # and the float value has to be formatted (as str) before comparing
+                elif type(objFrom[key]) is float:
+                    if objTo[key] != ("{:.6f}".format(objFrom[key])):
+                        j[key] = objFrom[key]
+                elif type(objTo[key]) is float:
+                    if objFrom[key] != ("{:.6f}".format(objTo[key])):
+                        j[key] = objFrom[key]
+            # normal differences
             else:
                 j[key] = objFrom[key]
     return j
@@ -213,8 +216,14 @@ def genDbUpdate(upd2Db, dbId = None):
                 setTxt += f"{key}={upd2Db[key]}"
             else:
                 where = f"WHERE {key}={upd2Db[key]}"
-        elif key == 'responsibles' and upd2Db[key] == [] or upd2Db[key] == None:
-            continue
+        elif key == 'responsibles' and upd2Db[key] == None:
+            if setTxt:
+                setTxt += ", "
+            setTxt += f"{key}=ARRAY[]::VARCHAR[]"
+        elif key == 'responsibles':
+            if setTxt:
+                setTxt += ", "
+            setTxt += f"{key}=ARRAY{upd2Db[key]}::VARCHAR[]"
         elif type(upd2Db[key]) is str or type(upd2Db[key]) is None:
             if setTxt:
                 setTxt += ", "
@@ -255,8 +264,8 @@ def addToIntempus(cursor, payload):
         #compare payload to project and update db in order to make sure that default intempus data is added to the db
         upd2Db = getProjectChanges(project, payload)
         if (upd2Db):
-            #with open('./data/params_updated_after_add.json', 'w') as fp:
-            #    json.dump(upd2Db, fp)
+            with open('./data/params_updated_after_add.json', 'w') as fp:
+                json.dump(upd2Db, fp)
             rv = updateDb(cursor, upd2Db, payload['id'])
             if rv:
                 print("DB Update Failed")
