@@ -8,10 +8,10 @@ System B uses a postgreSQL DB running in Docker. The system is designed to be ru
 
 * Install Python 3 (if not already installed)
 * Install Docker (if not already installed)
-* Run config.py to setup the Python dependencies and the DB in Docker
+* Run config.py to setup the Python dependencies used by this tool and the DB in Docker
   * Verifies Python 3 and Docker are setup locally
-  * Installs the dependencies using pip
-  * Sets up environment variables for accessing the DB these variables are local to the command prompt where the DB is run
+  * Installs the dependencies using pip (you can install them manually if this fails or you don't use pip, they are listed in the pyproject.toml file)
+  * Sets up environment variables for accessing the DB (these variables are local to the command prompt where the DB is run)
   * If Docker is installed locally, it sets up a postgreSQL DB that the system will use
   * If Docker is is running on another machine, it prints the Docker commands to run on the remote machine to setup the DB
 * Setup up environment variables for accessing the Intempus system
@@ -54,13 +54,14 @@ python3 main.py
 
 | Script         | What it does                                  |
 | -------------- | --------------------------------------------- |
-| data.py        | Used to generate CreateProjectsTable.sql |
-| extras.py      | Code that I wrote that I didn't end up using |
-| main.py        | The main script to sync System A and System B |
-| shared.py      | Contains functions shared across multiple scripts |
-| test_main.py   | Tests from "main" functions |
+| config .py | Sets up the system |
+| data.py | Used to generate CreateProjectsTable.sql |
+| extras.py | Code that I wrote that I didn't end up using |
+| main.py | The main script to sync System A and System B |
+| shared.py | Contains functions shared across multiple scripts |
+| test_main.py | Tests from "main" functions |
 | test_shared.py | Tests from "shared" functions |
-| update.py      | Used to test that all the data types were correct in the DB so they could be written to the Intempus system |
+| update.py | Used to test that all the data types were correct in the DB so they could be written to the Intempus system |
 | add_project_to_A.py | Adds a project to system A (Intempus) |
 | add_project_to_B.py | Adds a project to system B (DB)|
 
