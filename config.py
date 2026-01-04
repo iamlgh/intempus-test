@@ -69,7 +69,6 @@ not to run the setup of the environment. Goodbye!""")
 {failedDeps}""")
 
     #must enter test or dev (test to setup db for automated tests) <dbtype>
-    print("Do you want to setup the DB/environment for dev or test? [D/t] ", end="")
     dbtype = "dev"
     
     #set environment variables (host,port,db,user,password,apikey)

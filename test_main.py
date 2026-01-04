@@ -13,6 +13,7 @@ def test_getProjectChanges():
     with open("./data/diff_upd_case.json", "r", encoding="utf-8") as jsonData:
         diffData = json.load(jsonData)
     assert main.getProjectChanges(bData[1],aData['objects'][1]) == diffData
+    #assert main.getProjectChanges(aData['objects'][1],bData[1]) == diffData
 
 def input_to_db_update():
     with open("./data/params_updated_after_add.json", "r", encoding="utf-8") as jsonData:
