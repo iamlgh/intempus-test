@@ -10,9 +10,8 @@ def compareKeys(keysL, keysR, nameL = "Left", nameR = "Right"):
     #are keys between the two systems the same
     keysL = sorted(keysL) #objD.keys()
     keysR = sorted(keysR)
-    rv = 0
+    rv = None
     if keysL != keysR:
-        rv = 1
         print ("WARNING: Keys are not the same")
         uniqueKeysL = set(keysL) - set(keysR)
         if uniqueKeysL:
@@ -20,6 +19,7 @@ def compareKeys(keysL, keysR, nameL = "Left", nameR = "Right"):
         uniqueKeysR = set(keysR) - set(keysL)
         if uniqueKeysR:
             print(f"Keys only in {nameR}: {uniqueKeysR}")
+        rv = (uniqueKeysL, uniqueKeysR)
     return rv
 
 def getProjectChanges(objFrom, objTo):
@@ -176,9 +176,10 @@ def readIntempus():
     user = os.environ['INTEMPUS_USER']
     headers = {'authorization': f'apikey {user}:{apikey}', 'accept': 'application/json'}
     r = requests.get(url, headers=headers)
-    projects = r.json()
-    #print(projects['objects'])
-    return projects
+    projects = None
+    if r.ok:
+        projects = r.json()
+    return r, projects
 
 def readDb():
     # get all projects (if there are a lot of projects, then possibly get only projects updated after a the last run date)
@@ -188,22 +189,23 @@ def readDb():
     
     #the "projects" table will be ceated if it doesn't exist in the DB
     shared.createProjectsTable(cursor)
+    projects = []
 
-    # request data returned as json directly as a list of dictionaries
+    # request data returned as json for easiest conversion to a list of dictionaries
     curdict = connection.cursor(cursor_factory=RealDictCursor)
     rv = shared.runSql(curdict, f"SELECT row_to_json(r) project FROM (SELECT * FROM {shared.MAIN_TABLE} ORDER by id) r;")
-    dbData = curdict.fetchall()
-    projects = []
-    if len(dbData):
-        #with open('./data/start_db_data.json', 'w') as fp:
-        #    json.dump(dbData, fp)
-        for row in dbData:
-            print(f"Project id {row['project']['id']}")
-            projects.append(row['project'])
-
-    connection.close()
-
-    return projects
+    if not rv:
+        dbData = curdict.fetchall()
+        connection.close()
+        if len(dbData):
+            #with open('./data/db_data_row_to_json.json', 'w') as fp:
+            #    json.dump(dbData, fp)
+            # dbData is a list where each row is a dict in a "project" dict, but it is easier to compare to the Intempus 
+            # result, if a list of dictionaries is used
+            for row in dbData:
+                print(f"Project id {row['project']['id']}")
+                projects.append(row['project'])
+    return rv, projects
 
 def genDbUpdate(upd2Db, dbId = None):
     setTxt = ""
@@ -302,7 +304,7 @@ def updateIntempus(cursor, payload):
 def main():
     print("Hello from intempus-test!")
     dbData = readDb() # get projects from DB
-    iData = readIntempus()
+    iData, r = readIntempus()
     data = parseData(dbData, iData)
     rv = processUpdates(data)
     if rv:
