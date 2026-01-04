@@ -1,7 +1,11 @@
-import json
 import main
 import shared
-import pytest
+import json
+import os
+import requests
+
+from psycopg2.extras import RealDictCursor
+
 
 def data_comparison_input():
     with open("./data/9611850_A_data.json", "r", encoding="utf-8") as jsonData:
@@ -77,18 +81,18 @@ def test_parseData4():
 # requires Intempus account where data doesn't change, if we want to verify data
 def test_readIntempus():
     r, projects = main.readIntempus()
-    assert r.ok == True
-    assert type(projects) == dict 
-    assert type(projects['objects']) == list
-    assert type(projects['objects'][0]) == dict
+    assert r.ok is True
+    assert type(projects) is dict 
+    assert type(projects['objects']) is list
+    assert type(projects['objects'][0]) is dict
 
 # requires at least one record in the database to verify data types
 def test_readDb():
     rv, projects = main.readDb()
     assert rv == 0 
     if type(projects) is list and len(projects) > 0:
-        assert type(projects) == list 
-        assert type(projects[0]) == dict
+        assert type(projects) is list 
+        assert type(projects[0]) is dict
 
 def input_to_db_update():
     with open("./data/params_updated_after_add.json", "r", encoding="utf-8") as jsonData:
@@ -104,9 +108,68 @@ def test_genDbUpdate2():
 def test_insertInDb():
     connection = shared.connectDb()
     cursor = connection.cursor()
-    upd2Db = input_to_db_update()
-    upd2Db['id'] = 100
-    assert main.insertInDb(cursor, json.dumps(upd2Db)) == 0
+    add2Db = input_to_db_update()
+    add2Db['id'] = 100
+    assert main.insertInDb(cursor, json.dumps(add2Db)) == 0
     #remove db entry
     shared.runSql(cursor, "DELETE FROM projects WHERE id=100;")
     connection.close()
+
+def test_updateDb():
+    connection = shared.connectDb()
+    cursor = connection.cursor()
+    add2Db = input_to_db_update()
+    add2Db['id'] = 100
+    main.insertInDb(cursor, json.dumps(add2Db)) == 0
+    upd2Db = {
+        'id': 100,
+        'case_group': '{"company":"/web/v1/company/38167/","number":"2","name":"Project Group 2"}',
+        'case_state': '{"company":"/web/v1/company/38167/","number":"2","name":"Project State 2"}',
+        'department': '{"company":"/web/v1/company/38167/","number":"2","name":"Department 2"}'
+    }
+    assert main.updateDb(cursor, upd2Db) == 0
+    #remove db entry
+    shared.runSql(cursor, "DELETE FROM projects WHERE id=100;")
+    connection.close()
+
+# requires Intempus account where data doesn't change, if we want to verify data including id and resource_uri
+def test_addToIntempus():
+    connection = shared.connectDb()
+    cursor = connection.cursor()
+
+    with open("./data/payload_add.json", "r", encoding="utf-8") as jsonData:
+        addObj = json.load(jsonData)
+    #addObj = input_to_db_update()
+    dbId = 100
+    addObj["id"] = dbId
+    addObj["name"] = "Example T1"
+    addObj["number"] = "T1"
+
+    rv = main.insertInDb(cursor, json.dumps(addObj))
+    if not rv:
+        rv = main.addToIntempus(cursor, addObj)
+        assert rv == 0
+
+        curdict = connection.cursor(cursor_factory=RealDictCursor)
+        rv = shared.runSql(curdict, f"SELECT row_to_json(r) project FROM (SELECT * FROM {shared.MAIN_TABLE} WHERE number='T1') r;")
+        if not rv:
+            dbData = curdict.fetchall()
+            if len(dbData):
+                assert len(dbData) == 1
+                for row in dbData:
+                    assert row['project']['number'] == 'T1'
+                    id = row['project']['id']
+
+            assert id is not None
+            url = f"https://intempus.dk/web/v1/case/{id}"
+            apikey = os.environ['INTEMPUS_APIKEY']
+            user = os.environ['INTEMPUS_USER']
+            headers = {'authorization': f'apikey {user}:{apikey}', 'accept': 'application/json'}
+            r = requests.delete(url, headers=headers)
+            assert r.ok and r.status_code in (200, 204)
+        
+        shared.runSql(cursor, "DELETE FROM projects WHERE number='T1'")
+    
+    connection.close()
+
+

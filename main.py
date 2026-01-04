@@ -1,9 +1,7 @@
 import json
 import os
-import psycopg2
 import requests
 import shared
-import sys
 from psycopg2.extras import RealDictCursor
 
 def compareKeys(keysL, keysR, nameL = "Left", nameR = "Right"):
@@ -28,20 +26,20 @@ def getProjectChanges(objFrom, objTo):
         #include the keys with differences
         if objTo[key] != objFrom[key]:
             # in case db is null instead of empty array
-            if key == 'responsibles' and type(objTo[key]) != type(objFrom[key]):
+            if key == 'responsibles' and type(objTo[key]) is not type(objFrom[key]):
                 j[key] = objFrom[key]
             # elifs handle keys where the data is the same but doesn't look the same becaise of type differences
             # and only include them if they are different after formatting
-            elif key == 'hour_budget' and type(objTo[key]) != type(objFrom[key]):
+            elif key == 'hour_budget' and type(objTo[key]) is not type(objFrom[key]):
                 if type(objFrom[key]) is float:
                     if objTo[key] != ("{:.2f}".format(objFrom[key])):
                         j[key] = objFrom[key]
                 elif type(objTo[key]) is float:
                     if objFrom[key] != ("{:.2f}".format(objTo[key])):
                         j[key] = objFrom[key]
-            elif type(objTo[key]) != type(objFrom[key]):
+            elif type(objTo[key]) is not type(objFrom[key]):
                 # null to object or vice-versa
-                if objTo[key] == None or objFrom[key] == None:
+                if objTo[key] is None or objFrom[key] is None:
                     j[key] = objFrom[key]
                 # for longitute and latitude where a value exists for both, the types will be different (float vs str)
                 # and the float value has to be formatted (as str) before comparing
@@ -218,7 +216,7 @@ def genDbUpdate(upd2Db, dbId = None):
                 setTxt += f"{key}={upd2Db[key]}"
             else:
                 where = f"WHERE {key}={upd2Db[key]}"
-        elif key == 'responsibles' and upd2Db[key] == None:
+        elif key == 'responsibles' and upd2Db[key] is None:
             if setTxt:
                 setTxt += ", "
             setTxt += f"{key}=ARRAY[]::VARCHAR[]"
@@ -266,8 +264,8 @@ def addToIntempus(cursor, payload):
         #compare payload to project and update db in order to make sure that default intempus data is added to the db
         upd2Db = getProjectChanges(project, payload)
         if (upd2Db):
-            with open('./data/params_updated_after_add.json', 'w') as fp:
-                json.dump(upd2Db, fp)
+            #with open('./data/params_updated_after_add.json', 'w') as fp:
+            #    json.dump(upd2Db, fp)
             rv = updateDb(cursor, upd2Db, payload['id'])
             if rv:
                 print("DB Update Failed")
@@ -283,12 +281,9 @@ def updateIntempus(cursor, payload):
     apikey = os.environ['INTEMPUS_APIKEY']
     user = os.environ['INTEMPUS_USER']
     headers = {'authorization': f'apikey {user}:{apikey}', 'accept': 'application/json', 'content-type': 'application/json'}
-    print(payload)
     r = requests.put(url, headers=headers, data=json.dumps(payload))
     if r.ok:
         project = r.json()
-        print(project) 
-        print(payload)
         upd2Db = getProjectChanges(project, payload)
         if upd2Db:
             rv = updateDb(cursor, upd2Db, payload['id'])
@@ -303,8 +298,8 @@ def updateIntempus(cursor, payload):
 
 def main():
     print("Hello from intempus-test!")
-    dbData = readDb() # get projects from DB
-    iData, r = readIntempus()
+    rv, dbData = readDb() # get projects from DB
+    r, iData = readIntempus() # get projects from Intempus
     data = parseData(dbData, iData)
     rv = processUpdates(data)
     if rv:

@@ -1,10 +1,10 @@
 # intempus-test
 
-##System B
+## System B
 
 System B uses a postgreSQL DB running in Docker. The system is designed to be run on a síngle PC, but if you have an existing Docker installation on a server it can be used.
 
-##System B Setup
+## System B Setup
 
 * Install Python 3 (if not already installed)
 * Install Docker (if not already installed)
