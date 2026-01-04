@@ -8,7 +8,7 @@ System B uses a postgreSQL DB running in Docker. The system is designed to be ru
 
 * Install Python 3 (if not already installed)
 * Install Docker (if not already installed)
-* Run config.py to setup the Python dependiencies and the DB in Docker
+* Run config.py to setup the Python dependencies and the DB in Docker
   * Verifies Python 3 and Docker are setup locally
   * Installs the dependencies using pip
   * Sets up environment variables for accessing the DB these variables are local to the command prompt where the DB is run
