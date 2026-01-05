@@ -1,7 +1,7 @@
 import shared
 import main
 
-print(f"What do you want to use for the case number? ", end="")
+print("What do you want to use for the case number? ", end="")
 number = input()
 
 new_project = {

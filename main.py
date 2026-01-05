@@ -1,18 +1,15 @@
 import json
 import os
-import psycopg2
 import requests
 import shared
-import sys
 from psycopg2.extras import RealDictCursor
 
 def compareKeys(keysL, keysR, nameL = "Left", nameR = "Right"):
     #are keys between the two systems the same
     keysL = sorted(keysL) #objD.keys()
     keysR = sorted(keysR)
-    rv = 0
+    rv = None
     if keysL != keysR:
-        rv = 1
         print ("WARNING: Keys are not the same")
         uniqueKeysL = set(keysL) - set(keysR)
         if uniqueKeysL:
@@ -20,6 +17,7 @@ def compareKeys(keysL, keysR, nameL = "Left", nameR = "Right"):
         uniqueKeysR = set(keysR) - set(keysL)
         if uniqueKeysR:
             print(f"Keys only in {nameR}: {uniqueKeysR}")
+        rv = (uniqueKeysL, uniqueKeysR)
     return rv
 
 def getProjectChanges(objFrom, objTo):
@@ -28,20 +26,20 @@ def getProjectChanges(objFrom, objTo):
         #include the keys with differences
         if objTo[key] != objFrom[key]:
             # in case db is null instead of empty array
-            if key == 'responsibles' and type(objTo[key]) != type(objFrom[key]):
+            if key == 'responsibles' and type(objTo[key]) is not type(objFrom[key]):
                 j[key] = objFrom[key]
             # elifs handle keys where the data is the same but doesn't look the same becaise of type differences
             # and only include them if they are different after formatting
-            elif key == 'hour_budget' and type(objTo[key]) != type(objFrom[key]):
+            elif key == 'hour_budget' and type(objTo[key]) is not type(objFrom[key]):
                 if type(objFrom[key]) is float:
                     if objTo[key] != ("{:.2f}".format(objFrom[key])):
                         j[key] = objFrom[key]
                 elif type(objTo[key]) is float:
                     if objFrom[key] != ("{:.2f}".format(objTo[key])):
                         j[key] = objFrom[key]
-            elif type(objTo[key]) != type(objFrom[key]):
+            elif type(objTo[key]) is not type(objFrom[key]):
                 # null to object or vice-versa
-                if objTo[key] == None or objFrom[key] == None:
+                if objTo[key] is None or objFrom[key] is None:
                     j[key] = objFrom[key]
                 # for longitute and latitude where a value exists for both, the types will be different (float vs str)
                 # and the float value has to be formatted (as str) before comparing
@@ -176,9 +174,10 @@ def readIntempus():
     user = os.environ['INTEMPUS_USER']
     headers = {'authorization': f'apikey {user}:{apikey}', 'accept': 'application/json'}
     r = requests.get(url, headers=headers)
-    projects = r.json()
-    #print(projects['objects'])
-    return projects
+    projects = None
+    if r.ok:
+        projects = r.json()
+    return r, projects
 
 def readDb():
     # get all projects (if there are a lot of projects, then possibly get only projects updated after a the last run date)
@@ -188,22 +187,23 @@ def readDb():
     
     #the "projects" table will be ceated if it doesn't exist in the DB
     shared.createProjectsTable(cursor)
+    projects = []
 
-    # request data returned as json directly as a list of dictionaries
+    # request data returned as json for easiest conversion to a list of dictionaries
     curdict = connection.cursor(cursor_factory=RealDictCursor)
     rv = shared.runSql(curdict, f"SELECT row_to_json(r) project FROM (SELECT * FROM {shared.MAIN_TABLE} ORDER by id) r;")
-    dbData = curdict.fetchall()
-    projects = []
-    if len(dbData):
-        #with open('./data/start_db_data.json', 'w') as fp:
-        #    json.dump(dbData, fp)
-        for row in dbData:
-            print(f"Project id {row['project']['id']}")
-            projects.append(row['project'])
-
-    connection.close()
-
-    return projects
+    if not rv:
+        dbData = curdict.fetchall()
+        connection.close()
+        if len(dbData):
+            #with open('./data/db_data_row_to_json.json', 'w') as fp:
+            #    json.dump(dbData, fp)
+            # dbData is a list where each row is a dict in a "project" dict, but it is easier to compare to the Intempus 
+            # result, if a list of dictionaries is used
+            for row in dbData:
+                print(f"Project id {row['project']['id']}")
+                projects.append(row['project'])
+    return rv, projects
 
 def genDbUpdate(upd2Db, dbId = None):
     setTxt = ""
@@ -216,7 +216,7 @@ def genDbUpdate(upd2Db, dbId = None):
                 setTxt += f"{key}={upd2Db[key]}"
             else:
                 where = f"WHERE {key}={upd2Db[key]}"
-        elif key == 'responsibles' and upd2Db[key] == None:
+        elif key == 'responsibles' and upd2Db[key] is None:
             if setTxt:
                 setTxt += ", "
             setTxt += f"{key}=ARRAY[]::VARCHAR[]"
@@ -264,8 +264,8 @@ def addToIntempus(cursor, payload):
         #compare payload to project and update db in order to make sure that default intempus data is added to the db
         upd2Db = getProjectChanges(project, payload)
         if (upd2Db):
-            with open('./data/params_updated_after_add.json', 'w') as fp:
-                json.dump(upd2Db, fp)
+            #with open('./data/params_updated_after_add.json', 'w') as fp:
+            #    json.dump(upd2Db, fp)
             rv = updateDb(cursor, upd2Db, payload['id'])
             if rv:
                 print("DB Update Failed")
@@ -281,12 +281,9 @@ def updateIntempus(cursor, payload):
     apikey = os.environ['INTEMPUS_APIKEY']
     user = os.environ['INTEMPUS_USER']
     headers = {'authorization': f'apikey {user}:{apikey}', 'accept': 'application/json', 'content-type': 'application/json'}
-    print(payload)
     r = requests.put(url, headers=headers, data=json.dumps(payload))
     if r.ok:
         project = r.json()
-        print(project) 
-        print(payload)
         upd2Db = getProjectChanges(project, payload)
         if upd2Db:
             rv = updateDb(cursor, upd2Db, payload['id'])
@@ -301,8 +298,8 @@ def updateIntempus(cursor, payload):
 
 def main():
     print("Hello from intempus-test!")
-    dbData = readDb() # get projects from DB
-    iData = readIntempus()
+    rv, dbData = readDb() # get projects from DB
+    r, iData = readIntempus() # get projects from Intempus
     data = parseData(dbData, iData)
     rv = processUpdates(data)
     if rv:

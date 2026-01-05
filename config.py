@@ -50,7 +50,7 @@ you want to continue with the Docker DB setup? [Y/n] """, end="")
 Environment variable setup? [Y/n] """, end="")
         cont = input()
         if not (cont == "" or cont.lower() == "y" or cont.lower() == "yes"):
-            raise SystemExit(f"""You don't have pip or Docker installed locally, and you have chosen
+            raise SystemExit("""You don't have pip or Docker installed locally, and you have chosen
 not to run the setup of the environment. Goodbye!""")
     if hasPip and failedDeps:
         print("Dependencies not installed:", failedDeps)

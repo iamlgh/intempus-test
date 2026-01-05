@@ -28,7 +28,8 @@ def connectDb():
         connection.autocommit = True
     except psycopg2.OperationalError as e:
         raise SystemExit("Can't connect to DB:", e)
-    except:
+    except Exception as e:
+        print ("Exception type:", type(e))
         raise SystemExit("Unknown error connecting to DB")
     return connection
 
@@ -39,7 +40,8 @@ def runSql(cursor, sql):
     except (psycopg2.OperationalError, psycopg2.DataError, psycopg2.DatabaseError, psycopg2.ProgrammingError) as e:
         warnings.warn(e)
         return 1
-    except:
+    except Exception as e:
+        print ("Exception type:", type(e))
         raise SystemExit("Unknown error running runSql")
     return 0
 
@@ -52,7 +54,8 @@ def createProjectsTable(cursor):
             print(f"Create {MAIN_TABLE} table from {DB_SCRIPT}")
             try:
                 rv = cursor.execute(open(DB_SCRIPT, "r").read())
-            except:
+            except Exception as e:
+                print ("Exception type:", type(e))
                 print(rv)
                 raise SystemExit(f"Unable to verify or create {MAIN_TABLE}")
     return 0
