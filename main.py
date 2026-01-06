@@ -59,6 +59,7 @@ def checkForChanges(objD, objI):
     updatesIntempus2Db = []
     j = None
     #print("Checking if change was to db data or Intempus data")
+    # the DB doesn't update logical_timestamp so the logical_timestamps will be equal if there is only a DB update
     if objD['logical_timestamp'] == objI['logical_timestamp']:
         compareKeys(objD.keys(), objI.keys(), "db", "Intempus")
         # compare values for every key, but update changes only
@@ -68,6 +69,7 @@ def checkForChanges(objD, objI):
             j['id'] = objD['id']
             j['resource_uri'] = objD['resource_uri']
             updatesDb2Intempus.append(j)
+    # If Intempus data has changed, the logical_timestamp will be higher than the value in the DB
     elif objD['logical_timestamp'] != objI['logical_timestamp']:
         compareKeys(objI.keys(), objD.keys(), "Intempus", "db")
         # compare values for every key, but update changes only
@@ -77,8 +79,8 @@ def checkForChanges(objD, objI):
             j['id'] = objI['id']
             j['resource_uri'] = objI['resource_uri']
             updatesIntempus2Db.append(j)
-    else:
-        raise SystemExit("Cannot determine which data has changed")
+    #else:
+    #    raise SystemExit("Cannot determine which data has changed")
     if j:
         print(f"Need to update Id {objI['id']}")
     else:
@@ -210,6 +212,7 @@ def genDbUpdate(upd2Db, dbId = None):
     for key in upd2Db:
         if key == 'id':
             if dbId:
+                #intentionally renaming id for a project added to the db, then synced to Intempus
                 where = f"WHERE id={dbId}"
                 if setTxt:
                     setTxt += ", "
@@ -224,10 +227,14 @@ def genDbUpdate(upd2Db, dbId = None):
             if setTxt:
                 setTxt += ", "
             setTxt += f"{key}=ARRAY{upd2Db[key]}::VARCHAR[]"
-        elif type(upd2Db[key]) is str or type(upd2Db[key]) is None:
+        elif type(upd2Db[key]) is str:
             if setTxt:
                 setTxt += ", "
             setTxt += f"{key}='{upd2Db[key]}'"
+        elif upd2Db[key] is None:
+            if setTxt:
+                setTxt += ", "
+            setTxt += f"{key}=NULL"
         else:
             if setTxt:
                 setTxt += ", "
@@ -281,6 +288,7 @@ def updateIntempus(cursor, payload):
     apikey = os.environ['INTEMPUS_APIKEY']
     user = os.environ['INTEMPUS_USER']
     headers = {'authorization': f'apikey {user}:{apikey}', 'accept': 'application/json', 'content-type': 'application/json'}
+    rv = 0
     r = requests.put(url, headers=headers, data=json.dumps(payload))
     if r.ok:
         project = r.json()
