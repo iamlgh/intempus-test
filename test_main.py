@@ -1,3 +1,4 @@
+import pytest
 import main
 import shared
 import json
@@ -76,6 +77,11 @@ def test_parseData4():
 #test processUpdates
 # requires 1) Intempus account where data doesn't change, 2) Intempus account where data can be updated
 # 3) sql scripts to set DB tables and data up in a test DB
+@pytest.mark.skip(reason="I don't have a way to test this yet")
+def test_processUpdates():
+    data = None
+    rv = main.processUpdates(data)
+    assert rv == 0
 
 #test readIntempus
 # requires Intempus account where data doesn't change, if we want to verify data
@@ -125,11 +131,13 @@ def test_updateDb():
         'id': 100,
         'case_group': '{"company":"/web/v1/company/38167/","number":"2","name":"Project Group 2"}',
         'case_state': '{"company":"/web/v1/company/38167/","number":"2","name":"Project State 2"}',
-        'department': '{"company":"/web/v1/company/38167/","number":"2","name":"Department 2"}'
+        'department': '{"company":"/web/v1/company/38167/","number":"2","name":"Department 2"}',
+        'responsibles': ['test'],
+        'customer_country': None
     }
     assert main.updateDb(cursor, upd2Db) == 0
     #remove db entry
-    shared.runSql(cursor, "DELETE FROM projects WHERE id=100;")
+    assert shared.runSql(cursor, "DELETE FROM projects WHERE id=100;") == 0
     connection.close()
 
 # requires Intempus account where data doesn't change, if we want to verify data including id and resource_uri
@@ -173,3 +181,27 @@ def test_addToIntempus():
     connection.close()
 
 
+# requires Intempus account where data doesn't change, if we want to verify all data for a project
+def test_updateIntempus():
+    connection = shared.connectDb()
+    cursor = connection.cursor()
+    id = 9611850
+    url = f"https://intempus.dk/web/v1/case/{id}"
+    apikey = os.environ['INTEMPUS_APIKEY']
+    user = os.environ['INTEMPUS_USER']
+    headers = {'authorization': f'apikey {user}:{apikey}', 'accept': 'application/json'}
+    r = requests.get(url, headers=headers)
+    assert r.ok is True
+    if r.ok:
+        project = r.json()
+        active = project['active']
+
+        payload = {
+          "id": id,
+          "resource_uri": project['resource_uri'],
+          "active": not active
+        }
+        rv = main.updateIntempus(cursor, payload)
+    else:
+       rv = 1
+    assert rv == 0
